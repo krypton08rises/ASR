@@ -18,13 +18,25 @@ def process_long_audio(waveform, sampling_rate, task="transcribe", language=None
     model = get_model()
     device = get_device()
 
+    # # Ensure mono audio
+    # if waveform.ndim > 1:
+    #     waveform = waveform.mean(axis=0)
+
     input_length = waveform.shape[1]
     chunk_length = int(CHUNK_LENGTH_S * sampling_rate)
     chunks = [waveform[:, i:i + chunk_length] for i in range(0, input_length, chunk_length)]
 
     results = []
     for chunk in chunks:
-        input_features = processor(chunk[0], sampling_rate=sampling_rate, return_tensors="pt").input_features.to(device)
+
+        # Mono audio has a single channel.
+        # Stereo audio has two channels (left and right), which can capture spatial information.
+        if chunk.ndim > 1 and chunk.shape[0] > 1:
+            chnk = chunk.mean(axis=0)
+        else:
+            chnk = chunk.squeeze()
+
+        input_features = processor(chnk, sampling_rate=sampling_rate, return_tensors="pt").input_features.to(device)
 
         with torch.no_grad():
             if task == "translate":
